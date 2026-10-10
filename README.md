@@ -52,6 +52,19 @@ PUBLIC_URL=https://games.risa.gov.rw/fraud npm start
 
 Other env vars: `PORT` (default 4000), `DB_FILE` (default `./fraud-game.sqlite`).
 
+## Resetting the leaderboard
+
+Scores and names persist in `fraud-game.sqlite`. The reset endpoint only
+answers from localhost, so run it on the machine the server is on
+(locally in dev; over SSH in production):
+
+```bash
+curl -X POST localhost:4000/api/admin/reset
+```
+
+The wall screen empties on its next poll. See `DEPLOYMENT.md` section 9
+for the backup command and troubleshooting.
+
 ## Tests
 
 ```bash

@@ -209,18 +209,32 @@ To roll back, check out the previous commit and rebuild:
 > edited files directly on the VM. Discard them with `git checkout -- .`
 > (the database is untracked and is not affected), then pull again.
 
-## 9. Operations notes
+## 9. Resetting the database (fresh leaderboard)
 
-- **Reset the leaderboard (between sessions):** set `ADMIN_KEY` in the systemd
-  unit (`Environment=ADMIN_KEY=<long random string>`), then from anywhere:
-  ```bash
-  curl -X POST -H "x-admin-key: <key>" http://<VM_IP or domain>/api/admin/reset
-  ```
-  Returns `{"cleared": N}` and the wall empties on its next poll (~2.5s).
-  Without `ADMIN_KEY` set, the endpoint only answers from the VM itself
-  (SSH in, then `curl -X POST localhost:4000/api/admin/reset`).
-- **Backup scores first if you want them:** the database is one file:
-  `cp fraud-game.sqlite backup-$(date +%F).sqlite`.
+All scores and player names live in one SQLite file. The reset endpoint is
+deliberately **localhost-only**: it cannot be called from the internet, so
+the only way to wipe the board is to SSH into the VM first.
+
+```bash
+ssh azureuser@<VM_IP>
+curl -X POST localhost:4000/api/admin/reset
+# -> {"cleared": 42}
+```
+
+The wall empties on its next poll (~2.5 s). No restart needed.
+
+Want to keep the day's results first? The database is one file:
+
+```bash
+cp /opt/fraud-game/fraud-game.sqlite backup-$(date +%F).sqlite
+```
+
+**Troubleshooting:** an HTML page saying `Cannot POST /api/admin/reset` means
+the VM is running a build from before this endpoint existed; redeploy
+(section 8) and try again.
+
+## 10. Operations notes
+
 - **Logs:** `journalctl -u fraud-game --since today`
 - **Health:** `curl localhost:4000/api/health` (wire into Azure monitoring if you like)
 - **Reboot-proof:** `systemctl enable` already handles VM restarts.
@@ -229,7 +243,7 @@ To roll back, check out the previous commit and rebuild:
   public game). The only hardening that matters is keeping SSH locked down
   and the VM patched (`sudo apt-get upgrade`).
 
-## 10. Demo-day checklist
+## 11. Demo-day checklist
 
 - [ ] `systemctl status fraud-game` green
 - [ ] `http://<VM_IP or domain>` loads the game on a phone **on mobile data**

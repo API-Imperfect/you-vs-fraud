@@ -95,13 +95,11 @@ app.post('/api/score', (req, res) => {
 });
 
 // ── Facilitator reset: wipe the leaderboard between sessions ────────────────
-// Protected by ADMIN_KEY (set it in the environment). Without ADMIN_KEY set,
-// the reset only works from the server itself (SSH + curl on localhost).
+// Deliberately localhost-only: SSH into the server, then
+//   curl -X POST localhost:4000/api/admin/reset
 app.post('/api/admin/reset', (req, res) => {
-  const key = process.env.ADMIN_KEY;
-  const given = req.get('x-admin-key') ?? req.query.key;
   const isLocal = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
-  if (key ? given !== key : !isLocal) {
+  if (!isLocal) {
     res.status(403).json({ error: 'Not allowed' });
     return;
   }
