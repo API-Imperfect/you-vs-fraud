@@ -14,6 +14,7 @@ class MemoryStore {
   constructor() { this.rows = []; this.nextId = 1; }
   insert(row) { this.rows.push({ id: this.nextId++, ...row }); }
   all() { return this.rows.slice(-MAX_ROWS_SCANNED); }
+  clear() { const n = this.rows.length; this.rows = []; return n; }
 }
 
 class SqliteStore {
@@ -38,6 +39,7 @@ class SqliteStore {
   }
   insert(row) { this.insertStmt.run(row); }
   all() { return this.allStmt.all().reverse(); }
+  clear() { return this.db.prepare('DELETE FROM scores').run().changes; }
 }
 
 export function openStore(file = 'fraud-game.sqlite') {
@@ -119,4 +121,9 @@ export function leaderboard(store, questionCount = 10) {
     })),
     totals: { players: rows.length, avgScore },
   };
+}
+
+/** Wipe the leaderboard (facilitator reset between sessions). Returns rows removed. */
+export function clearScores(store) {
+  return store.clear();
 }

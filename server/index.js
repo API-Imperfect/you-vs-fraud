@@ -16,7 +16,7 @@ import express from 'express';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { openStore, saveScore, leaderboard } from './store.js';
+import { openStore, saveScore, leaderboard, clearScores } from './store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 4000;
@@ -92,6 +92,22 @@ app.post('/api/score', (req, res) => {
   } catch (err) {
     res.status(400).json({ error: err?.message ?? 'Invalid score' });
   }
+});
+
+// ── Facilitator reset: wipe the leaderboard between sessions ────────────────
+// Protected by ADMIN_KEY (set it in the environment). Without ADMIN_KEY set,
+// the reset only works from the server itself (SSH + curl on localhost).
+app.post('/api/admin/reset', (req, res) => {
+  const key = process.env.ADMIN_KEY;
+  const given = req.get('x-admin-key') ?? req.query.key;
+  const isLocal = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
+  if (key ? given !== key : !isLocal) {
+    res.status(403).json({ error: 'Not allowed' });
+    return;
+  }
+  const cleared = clearScores(store);
+  console.log(`[admin] leaderboard reset: ${cleared} scores removed`);
+  res.json({ cleared });
 });
 
 app.get('/api/leaderboard', (_req, res) => {

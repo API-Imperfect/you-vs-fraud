@@ -13,6 +13,9 @@ is more than enough for a demo-day audience.
 ## 0. Assumptions
 
 - Ubuntu 22.04/24.04 VM, you can SSH in (`ssh azureuser@<VM_IP>`)
+- The code lives on GitHub at <https://github.com/API-Imperfect/you-vs-fraud>
+  (public, `main` branch). The VM pulls from there; nothing is copied from
+  your laptop.
 - The app listens on port **4000**; Caddy in front of it on ports **80/443**
   (Caddy gets and renews HTTPS certificates automatically once a domain exists)
 - Replace `<VM_IP>` everywhere with the VM's public IP
@@ -45,7 +48,7 @@ Two more portal checks while you are there:
 ```bash
 sudo apt-get update
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs build-essential
+sudo apt-get install -y nodejs build-essential git
 node --version   # v20.x
 
 # Caddy (from Ubuntu's own repo; 24.04 ships 2.6.x, plenty for a reverse proxy)
@@ -66,30 +69,27 @@ caddy version
 compile ever fails, the app still runs: the store falls back to in-memory
 (scores reset on restart), so you can fix it later.
 
-## 3. Put the app on the VM
+## 3. Clone the app onto the VM
 
-From your machine (repo root):
+On the VM:
 
 ```bash
-rsync -a --exclude node_modules --exclude dist --exclude fraud-game.sqlite \
-  ./ azureuser@<VM_IP>:/opt/fraud-game/
+sudo mkdir -p /opt/fraud-game
+sudo chown azureuser:azureuser /opt/fraud-game
+git clone https://github.com/API-Imperfect/you-vs-fraud.git /opt/fraud-game
 ```
 
-> `Permission denied (publickey)` here means the VM does not trust the key
-> rsync is offering. Either point it at the key you downloaded when creating
-> the VM (`rsync -e "ssh -i ~/path/to/key.pem" ...`), or add your Mac's
-> public key (`cat ~/.ssh/id_ed25519.pub`) to the VM via Azure portal →
-> VM → Help → *Reset password* → *Reset SSH public key*, then rerun as-is.
-
-(Or push the folder to a git repo and `git clone` it on the VM — better once
-the team maintains it.)
+The repo is public, so no GitHub credentials are needed on the VM. If it is
+ever made private, give the VM read-only access with a deploy key:
+`ssh-keygen -t ed25519 -f ~/.ssh/github_deploy -N ""` on the VM, paste the
+`.pub` into GitHub → repo → Settings → Deploy keys, and clone the
+`git@github.com:API-Imperfect/you-vs-fraud.git` URL instead.
 
 ## 4. Build on the VM
 
 ```bash
-ssh azureuser@<VM_IP>
 cd /opt/fraud-game
-npm ci || npm install
+npm ci
 npm run build          # produces dist/
 ```
 
@@ -188,23 +188,39 @@ next page load, because both QRs render whatever `/api/config` returns.
 
 ## 8. Updating the app
 
-```bash
-# from your machine
-rsync -a --exclude node_modules --exclude dist --exclude fraud-game.sqlite \
-  ./ azureuser@<VM_IP>:/opt/fraud-game/
+Commit and push to `main` from your machine, then on the VM:
 
-# on the VM
-cd /opt/fraud-game && npm ci && npm run build && sudo systemctl restart fraud-game
+```bash
+cd /opt/fraud-game
+git pull --ff-only
+npm ci                       # only needed if package-lock.json changed, harmless otherwise
+npm run build
+sudo systemctl restart fraud-game
 ```
 
 Scores survive restarts and updates: they live in `fraud-game.sqlite`, which
-both rsync commands deliberately exclude.
+is in `.gitignore`, so `git pull` never touches it.
+
+To roll back, check out the previous commit and rebuild:
+`git log --oneline -5`, then `git checkout <sha>`, `npm run build`,
+`sudo systemctl restart fraud-game`. Return to `main` with `git checkout main`.
+
+> `git pull` refuses with "local changes would be overwritten"? Someone
+> edited files directly on the VM. Discard them with `git checkout -- .`
+> (the database is untracked and is not affected), then pull again.
 
 ## 9. Operations notes
 
-- **Backup / reset scores:** the database is one file.
-  Backup: `cp fraud-game.sqlite backup-$(date +%F).sqlite`.
-  Fresh leaderboard for a new event: stop the service, move the file away, start.
+- **Reset the leaderboard (between sessions):** set `ADMIN_KEY` in the systemd
+  unit (`Environment=ADMIN_KEY=<long random string>`), then from anywhere:
+  ```bash
+  curl -X POST -H "x-admin-key: <key>" http://<VM_IP or domain>/api/admin/reset
+  ```
+  Returns `{"cleared": N}` and the wall empties on its next poll (~2.5s).
+  Without `ADMIN_KEY` set, the endpoint only answers from the VM itself
+  (SSH in, then `curl -X POST localhost:4000/api/admin/reset`).
+- **Backup scores first if you want them:** the database is one file:
+  `cp fraud-game.sqlite backup-$(date +%F).sqlite`.
 - **Logs:** `journalctl -u fraud-game --since today`
 - **Health:** `curl localhost:4000/api/health` (wire into Azure monitoring if you like)
 - **Reboot-proof:** `systemctl enable` already handles VM restarts.

@@ -1,5 +1,5 @@
 /** Store sanity checks (uses the in-memory fallback): `node server/store.test.js` */
-import { openStore, saveScore, leaderboard } from './store.js';
+import { openStore, saveScore, leaderboard, clearScores } from './store.js';
 
 let failed = 0;
 const check = (cond, msg) => {
@@ -37,6 +37,10 @@ const r4 = saveScore(store, { name: 'x'.repeat(500), score: 99999, total: -5, du
 check(r4.players === 4, 'hostile input clamped');
 const lb2 = leaderboard(store, 10);
 check(lb2.top[0].score <= 100 && lb2.top.every(t => t.name.length <= 24), 'stored values within bounds');
+
+const cleared = clearScores(store);
+check(cleared === 4, 'clear() removes all rows (got ' + cleared + ')');
+check(leaderboard(store, 10).totals.players === 0, 'leaderboard empty after reset');
 
 if (failed) { console.log(failed + ' FAILED'); process.exit(1); }
 console.log('all store checks passed');
