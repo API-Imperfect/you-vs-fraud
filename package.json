@@ -1,0 +1,32 @@
+{
+  "name": "you-vs-fraud-detection",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "You vs Fraud Detection - a 2-minute fraud-desk game for the RISA DPI Demo Center, with a live wall screen (QR join, leaderboard, room judgment stats). Scoring runs Tazama's real methodology: banded rule results, weighted typology scoring, alert/interdiction thresholds.",
+  "scripts": {
+    "dev": "concurrently \"node server/index.js\" \"vite\"",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "test": "node server/store.test.js && tsx src/engine.test.ts"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "gsap": "^3.12.5",
+    "qrcode.react": "^4.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.2"
+  }
+}

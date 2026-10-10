@@ -1,0 +1,353 @@
+<title>You vs Fraud Detection</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: phone-first card game: one transaction at a time, two big verdict buttons,
+     then a comparison screen. Same night "control room" family as Bridge Builder. */
+  :root{
+    --bg:#12142e;
+    --panel:#1d2048;
+    --line:#34386b;
+    --ink:#eef0ff;
+    --ink-dim:#9aa0cf;
+    --accent:#ffb236;   /* amber - money, emphasis */
+    --ok:#00d68f;       /* approve / correct */
+    --bad:#fd5d93;      /* decline / fraud */
+    --review:#1d8cf8;   /* engine "hold for review" */
+    --display:'Chakra Petch','Trebuchet MS',sans-serif;
+    --body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+    color-scheme: dark;
+  }
+  html,body{height:100%}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--body); font-size:15px; line-height:1.5}
+  #app{max-width:560px; margin:0 auto; min-height:100%; display:flex; flex-direction:column;
+       padding:14px 16px calc(16px + env(safe-area-inset-bottom,0px)); gap:10px}
+
+  .top{display:flex; align-items:center; gap:10px}
+  .top h1{font-family:var(--display); font-weight:700; font-size:1rem; letter-spacing:.05em; text-transform:uppercase; margin:0}
+  .top h1 small{display:block; font-size:.6rem; color:var(--ink-dim); letter-spacing:.1em; margin-top:-2px}
+  .progress{margin-left:auto; font-family:var(--display); font-weight:600; font-size:.8rem; color:var(--ink-dim);
+            background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:4px 12px; font-variant-numeric:tabular-nums}
+
+  .stage{flex:1; display:flex; flex-direction:column; gap:10px; min-height:0}
+
+  /* Transaction card */
+  .txcard{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px 18px 14px;
+          box-shadow:0 10px 36px rgba(0,0,0,.35)}
+  .txcard .kind{font-family:var(--display); font-size:.62rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-dim); margin:0 0 4px}
+  .txcard .amt{font-family:var(--display); font-weight:700; font-size:1.9rem; color:var(--accent); font-variant-numeric:tabular-nums; margin:0; line-height:1.15}
+  .txcard .route{color:var(--ink-dim); font-size:.9rem; margin:2px 0 12px}
+  .txcard .route b{color:var(--ink)}
+  .clues{display:flex; flex-direction:column; gap:7px; margin:0; padding:0; list-style:none}
+  .clues li{display:flex; gap:9px; align-items:flex-start; font-size:.9rem; color:var(--ink-dim);
+            background:rgba(255,255,255,.035); border-radius:9px; padding:7px 11px}
+  .clues li .ico{flex:none}
+  .clues li b{color:var(--ink); font-weight:600}
+
+  .verdicts{display:flex; gap:10px}
+  .vbtn{flex:1; font-family:var(--display); font-weight:700; font-size:1.02rem; letter-spacing:.04em; text-transform:uppercase;
+        border-radius:12px; padding:16px 10px; cursor:pointer; border:1px solid var(--line); background:var(--panel); color:var(--ink)}
+  .vbtn.approve{border-color:rgba(0,214,143,.45); color:var(--ok)}
+  .vbtn.decline{border-color:rgba(253,93,147,.45); color:var(--bad)}
+  .vbtn:active{transform:translateY(1px)}
+  .vbtn:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+
+  /* Per-card feedback */
+  .feedback{border-radius:12px; padding:12px 14px; font-size:.9rem; display:none}
+  .feedback.show{display:block}
+  .feedback.good{background:rgba(0,214,143,.1); border:1px solid rgba(0,214,143,.4)}
+  .feedback.badf{background:rgba(253,93,147,.1); border:1px solid rgba(253,93,147,.4)}
+  .feedback .verdict-line{font-family:var(--display); font-weight:700; font-size:.95rem; margin:0 0 3px}
+  .feedback.good .verdict-line{color:var(--ok)} .feedback.badf .verdict-line{color:var(--bad)}
+  .feedback p{margin:0; color:var(--ink-dim)}
+  .engline{margin-top:10px; padding-top:9px; border-top:1px dashed var(--line); font-size:.78rem;
+           color:var(--ink-dim); font-variant-numeric:tabular-nums}
+  .engline b{color:var(--review)}
+  .score{font-family:var(--display); font-size:.68rem; color:var(--ink-dim); font-variant-numeric:tabular-nums}
+  .nextbtn{font-family:var(--display); font-weight:700; font-size:.95rem; letter-spacing:.05em; text-transform:uppercase;
+           background:var(--accent); color:#241a04; border:none; border-radius:10px; padding:13px; cursor:pointer; width:100%}
+
+  /* Intro / results card */
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:24px 22px; box-shadow:0 14px 48px rgba(0,0,0,.4)}
+  .card .eyebrow{font-family:var(--display); font-weight:600; font-size:.64rem; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); margin:0 0 6px}
+  .card h2{font-family:var(--display); font-weight:700; font-size:1.5rem; margin:0 0 10px; line-height:1.25; text-wrap:balance}
+  .card p{margin:0 0 12px; color:var(--ink-dim); max-width:56ch}
+  .card p b{color:var(--ink)}
+  .btn{font-family:var(--display); font-weight:700; font-size:1rem; letter-spacing:.05em; text-transform:uppercase;
+       background:var(--accent); color:#241a04; border:none; border-radius:10px; padding:14px 26px; cursor:pointer}
+  .btn:focus-visible{outline:3px solid var(--ink); outline-offset:2px}
+
+  /* Score duel */
+  .duel{display:flex; gap:10px; margin:6px 0 14px}
+  .duel .side{flex:1; background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center}
+  .duel .side .who{font-family:var(--display); font-size:.65rem; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-dim)}
+  .duel .side .sc{font-family:var(--display); font-weight:700; font-size:2rem; font-variant-numeric:tabular-nums}
+  .duel .you .sc{color:var(--accent)} .duel .eng .sc{color:var(--review)}
+
+  table.rev{width:100%; border-collapse:collapse; margin:4px 0 14px; font-size:.82rem}
+  table.rev th, table.rev td{padding:6px 6px; border-bottom:1px solid var(--line); text-align:center}
+  table.rev td:first-child, table.rev th:first-child{text-align:left}
+  table.rev th{font-family:var(--display); font-size:.6rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-dim)}
+  table.rev td:first-child{color:var(--ink-dim)}
+  .pill{display:inline-block; border-radius:999px; padding:1px 9px; font-size:.72rem; font-weight:600; white-space:nowrap}
+  .p-ok{background:rgba(0,214,143,.14); color:var(--ok)}
+  .p-bad{background:rgba(253,93,147,.14); color:var(--bad)}
+  .p-rev{background:rgba(29,140,248,.14); color:var(--review)}
+  .p-dim{background:rgba(255,255,255,.07); color:var(--ink-dim)}
+  .hit{color:var(--ok); font-weight:700} .miss{color:var(--bad); font-weight:700}
+
+  .tazama{border:1px solid rgba(0,214,143,.35); background:rgba(0,214,143,.06); border-radius:12px; padding:14px 16px; margin:4px 0 14px}
+  .tazama p{margin:0; font-size:.92rem}
+
+  @media (max-width:420px){ .card{padding:18px 16px} .card h2{font-size:1.3rem} table.rev{font-size:.76rem} }
+</style>
+
+<div id="app">
+  <div class="top">
+    <h1>You vs Fraud Detection<small>RISA DPI Demo Center &middot; IIPS</small></h1>
+    <div class="progress" id="prog" hidden>1 / 10</div>
+  </div>
+  <div class="stage" id="stage"></div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ── The transactions (RWF). truth: is it actually fraud? engine: what automated
+  //    real-time monitoring decides, and which rule fired. ─────────────────────
+  const TX = [
+    { kind:'Incoming payments', amt:230000, route:'<b>47 customers</b> &rarr; <b>Mama Chantal&rsquo;s produce stall</b>',
+      clues:[['📈','<b>47 small payments</b> in 3 hours, an unusually high velocity'],
+             ['🏪','Recipient is a <b>registered market merchant</b>, active 2 years'],
+             ['📅','Same pattern <b>every market day</b> for 14 months']],
+      truth:'legit', why:'A busy market stall on market day. High velocity alone is not fraud. Context is everything.',
+      rules:[{id:'011', band:'.02', wght:100, reason:'Incoming volume above baseline but within this merchant&rsquo;s 14-month profile'},
+             {id:'021', band:'.01', wght:50, reason:'Many small similar amounts, consistent with retail takings'}] },
+
+    { kind:'Three outgoing transfers', amt:999000, route:'<b>J. Habimana</b> &rarr; <b>same new recipient</b>, 3 times in 55 min',
+      clues:[['🔢','Each transfer is <b>RWF 999,000</b> , just under the 1M reporting threshold'],
+             ['⏱️','All three within <b>one hour</b>'],
+             ['👤','Recipient account opened <b>yesterday</b>']],
+      truth:'fraud', why:'Classic structuring: splitting a large sum to slip under the reporting threshold.',
+      rules:[{id:'006', band:'.03', wght:300, reason:'Three near-identical outgoing amounts within one hour'},
+             {id:'091', band:'.02', wght:300, reason:'Amounts calibrated just below the regulatory reporting threshold'}] },
+
+    { kind:'Outgoing transfer', amt:480000, route:'<b>A. Uwera</b> &rarr; <b>unknown recipient</b>',
+      clues:[['🌙','Initiated at <b>2:47 AM</b>'],
+             ['📱','From a <b>device never seen</b> on this account'],
+             ['💸','Amount is the <b>entire wallet balance</b>']],
+      truth:'fraud', why:'Account takeover: new device, dead of night, drain the full balance.',
+      rules:[{id:'018', band:'.03', wght:300, reason:'Exceptionally large outgoing transfer vs this account&rsquo;s history'},
+             {id:'030', band:'.02', wght:150, reason:'Creditor account never paid before'},
+             {id:'076', band:'.02', wght:100, reason:'Activity far outside this debtor&rsquo;s habitual hours'}] },
+
+    { kind:'Incoming remittance', amt:350000, route:'<b>E. Mukiza (Belgium)</b> &rarr; <b>his mother, Rusizi</b>',
+      clues:[['🌍','International remittance from a <b>long-standing sender</b>'],
+             ['📅','Arrives around the <b>28th of every month</b>, 3 years running'],
+             ['📊','Amount within the usual range']],
+      truth:'legit', why:'The monthly remittance home. It is the heartbeat transaction of financial inclusion.',
+      rules:[{id:'020', band:'.01', wght:50, reason:'Amount within the creditor&rsquo;s 3-year receiving pattern'}] },
+
+    { kind:'Fan-out after dormancy', amt:1200000, route:'<b>Dormant account</b> &rarr; <b>6 new recipients</b> in 10 min',
+      clues:[['💤','Account was <b>dormant for 11 months</b>'],
+             ['⚡','Receives 1.2M, then <b>fans out to 6 accounts</b>, all opened this week'],
+             ['🔗','Those 6 accounts show the <b>same pattern</b> from other senders']],
+      truth:'fraud', why:'A money mule: dormant account wakes up, receives, and sprays funds onward.',
+      rules:[{id:'004', band:'.03', wght:250, reason:'Debtor account dormant for 11 months before this burst'},
+             {id:'017', band:'.03', wght:250, reason:'Rapid divergence: funds fan out to many recipients'},
+             {id:'001', band:'.03', wght:100, reason:'Creditor accounts all derived as days old'}] },
+
+    { kind:'Outgoing transfer', amt:200000, route:'<b>D. Ingabire</b> &rarr; <b>G.S. Kacyiru school account</b>',
+      clues:[['🏫','Recipient is a <b>school&rsquo;s registered collection account</b>'],
+             ['📅','It is the <b>first week of term</b>, when thousands pay this account'],
+             ['💰','Amount matches the published fee']],
+      truth:'legit', why:'School fees at term start. It is as legitimate as payments get.',
+      rules:[{id:'011', band:'.01', wght:50, reason:'Seasonal volume to a known institutional collection account'}] },
+
+    { kind:'PIN reset, then transfer', amt:300000, route:'<b>C. Niyigena</b> &rarr; <b>new recipient</b>',
+      clues:[['📟','SIM card was <b>swapped 20 minutes ago</b>'],
+             ['🔐','PIN was <b>reset immediately after</b> the swap'],
+             ['➡️','First action: transfer out to a recipient never paid before']],
+      truth:'fraud', why:'SIM-swap attack: hijack the number, reset the PIN, drain the account.',
+      rules:[{id:'030', band:'.03', wght:250, reason:'First-ever transfer to this creditor, right after credential changes'},
+             {id:'018', band:'.02', wght:150, reason:'Large outgoing transfer vs recent history'},
+             {id:'076', band:'.03', wght:150, reason:'Burst of sensitive actions within minutes of a SIM change'}] },
+
+    { kind:'First transaction ever', amt:180000, route:'<b>New user, new phone</b> &rarr; <b>her brother</b>',
+      clues:[['🆕','Account opened <b>this week</b>: her first phone, her first wallet'],
+             ['📱','Device unknown (naturally: it&rsquo;s brand new)'],
+             ['👥','Recipient is an established account with a clean history']],
+      truth:'legit', why:'A first-time user, exactly the person an inclusive payment system exists for. Decline her, and you teach her to stay in cash.',
+      rules:[{id:'001', band:'.03', wght:200, reason:'Debtor account derived as brand new'},
+             {id:'030', band:'.01', wght:100, reason:'Creditor is established with a clean history'}] },
+
+    { kind:'Burst of small payouts', amt:75000, route:'<b>A. Mukandori</b> &rarr; <b>15 members</b>, RWF 5,000 each',
+      clues:[['⚡','<b>15 transfers in 4 minutes</b> to 15 different people'],
+             ['👥','Recipients are the <b>same group every month</b>'],
+             ['📅','Always at <b>month end</b>']],
+      truth:'legit', why:'An ikimina, a savings group, paying out its members. Burst velocity, perfectly legitimate.',
+      rules:[{id:'017', band:'.02', wght:150, reason:'Fan-out matches a recurring monthly payout circle'},
+             {id:'010', band:'.02', wght:100, reason:'Burst volume consistent with month-end profile'}] },
+
+    { kind:'Online purchase', amt:90000, route:'<b>F. Mugenzi</b> &rarr; <b>&ldquo;Kigali Deals Online&rdquo;</b>',
+      clues:[['📱','Sender&rsquo;s usual device, normal daytime hours'],
+             ['⚠️','Merchant account has <b>3 unresolved complaints</b> this month'],
+             ['🛒','Merchant demands <b>payment before any delivery</b>, no returns']],
+      truth:'fraud', why:'A scam storefront. The sender looks normal. The risk is the counterparty.',
+      efrup:true, rules:[{id:'EFRuP', band:'overridable-block', wght:0, reason:'An entity condition is in effect on the creditor: unresolved complaint cluster'}] },
+  ];
+
+  const S = { i:0, picks:[], screen:'intro' };
+  const stage = document.getElementById('stage');
+  const prog = document.getElementById('prog');
+  const rwf = n => 'RWF ' + n.toLocaleString('en-US');
+
+  function show(html){ stage.innerHTML = html; }
+
+  // ── Intro ─────────────────────────────────────────────────────────────────
+  function intro(){
+    S.i = 0; S.picks = []; S.screen = 'intro'; prog.hidden = true;
+    show(
+      '<div class="card">'+
+      '<p class="eyebrow">A 2-minute game &middot; you are the fraud desk</p>'+
+      '<h2>10 real-looking transactions. Approve or decline?</h2>'+
+      '<p>An instant payment system puts money in the recipient&rsquo;s hands <b>within seconds</b>, and the fraud decision has to happen <b>before the money moves</b>. So must yours. '+
+      'Some of these 10 are fraud. Some are the livelihoods of honest people. Block too little and thieves win; '+
+      'block too much and you push real customers back to cash.</p>'+
+      '<p>Make your calls. Then see how an <b>automated real-time fraud monitoring system</b> scored the very same transactions.</p>'+
+      '<button class="btn" id="startBtn">Take the desk</button>'+
+      '</div>'
+    );
+    document.getElementById('startBtn').addEventListener('click', nextCard);
+  }
+
+  // ── One transaction ───────────────────────────────────────────────────────
+  function nextCard(){
+    if (S.i >= TX.length){ results(); return; }
+    S.screen = 'card'; prog.hidden = false;
+    prog.textContent = (S.i+1) + ' / ' + TX.length;
+    const t = TX[S.i];
+    show(
+      '<div class="txcard">'+
+      '<p class="kind">'+ t.kind +'</p>'+
+      '<p class="amt">'+ rwf(t.amt) +'</p>'+
+      '<p class="route">'+ t.route +'</p>'+
+      '<ul class="clues">'+ t.clues.map(c => '<li><span class="ico">'+c[0]+'</span><span>'+c[1]+'</span></li>').join('') +'</ul>'+
+      '</div>'+
+      '<div class="verdicts">'+
+      '<button class="vbtn approve" id="okBtn">✓ Approve</button>'+
+      '<button class="vbtn decline" id="noBtn">✕ Decline</button>'+
+      '</div>'+
+      '<div class="feedback" id="fb"></div>'
+    );
+    document.getElementById('okBtn').addEventListener('click', () => pick('approve'));
+    document.getElementById('noBtn').addEventListener('click', () => pick('decline'));
+  }
+
+  function pick(choice){
+    if (S.picks.length > S.i) return; // already answered
+    const t = TX[S.i];
+    const correct = (t.truth === 'fraud' && choice === 'decline') || (t.truth === 'legit' && choice === 'approve');
+    S.picks.push({ choice, correct });
+
+    document.getElementById('okBtn').disabled = true;
+    document.getElementById('noBtn').disabled = true;
+
+    let headline, detail;
+    if (correct && t.truth === 'fraud'){ headline = '✓ Good call. That was fraud.'; }
+    else if (correct){ headline = '✓ Good call. That one was legitimate.'; }
+    else if (t.truth === 'fraud'){ headline = '✕ That was fraud, and you approved it.'; }
+    else { headline = '✕ That was legitimate, and you blocked a real customer.'; }
+    detail = t.why;
+
+    const fb = document.getElementById('fb');
+    fb.className = 'feedback show ' + (correct ? 'good' : 'badf');
+    fb.innerHTML = '<p class="verdict-line">'+ headline +'</p><p>'+ detail +'</p>'+
+      '<div class="engline">\u2699 Fraud engine: '+ engineBreakdown(t) +'</div>'+
+      '<button class="nextbtn" id="nxt" style="margin-top:10px">'+ (S.i === TX.length-1 ? 'See how the machine did' : 'Next transaction') +'</button>';
+    document.getElementById('nxt').addEventListener('click', () => { S.i++; nextCard(); });
+    document.getElementById('nxt').focus();
+  }
+
+  // ── Results: you vs the engine ────────────────────────────────────────────
+  // Tazama methodology: weighted rule bands summed per typology, compared to
+  // the alert and interdiction thresholds (values from Tazama's sample config).
+  const ALERT_THRESHOLD = 300, INTERDICTION_THRESHOLD = 500;
+
+  function engineOutcome(t){
+    if (t.efrup) return { verdict:'block', score:null };
+    const score = t.rules.reduce((sum,r) => sum + r.wght, 0);
+    const verdict = score >= INTERDICTION_THRESHOLD ? 'block'
+                  : score >= ALERT_THRESHOLD ? 'review' : 'allow';
+    return { verdict, score };
+  }
+
+  function engineBreakdown(t){
+    if (t.efrup){
+      return '<b>Event-Flow Rule Processor:</b> ' + t.rules[0].reason +
+             ' &rarr; <b>interdiction</b>, regardless of score.';
+    }
+    const o = engineOutcome(t);
+    const parts = t.rules.map(r => 'Rule ' + r.id + ' ' + r.band + ' (' + r.wght + ')').join(' + ');
+    const label = o.verdict === 'block' ? 'score ' + o.score + ' &ge; ' + INTERDICTION_THRESHOLD + ' &rarr; <b>interdiction (block)</b>'
+                : o.verdict === 'review' ? 'score ' + o.score + ' &ge; ' + ALERT_THRESHOLD + ' &rarr; <b>alert (review)</b>'
+                : 'score ' + o.score + ' &lt; ' + ALERT_THRESHOLD + ' &rarr; <b>no alert (allow)</b>';
+    return parts + ' = ' + label;
+  }
+
+  function engineCorrect(t){
+    const v = engineOutcome(t).verdict;
+    if (v === 'review') return t.truth === 'legit'; // held briefly, then released correctly
+    return (v === 'block') === (t.truth === 'fraud');
+  }
+
+  function results(){
+    S.screen = 'results'; prog.hidden = true;
+    const youScore = S.picks.filter(p => p.correct).length;
+    const engScore = TX.filter(engineCorrect).length;
+    const youBlockedLegit = TX.filter((t,i) => t.truth==='legit' && S.picks[i].choice==='decline').length;
+    const youMissedFraud  = TX.filter((t,i) => t.truth==='fraud' && S.picks[i].choice==='approve').length;
+
+    const rows = TX.map((t,i) => {
+      const you = S.picks[i];
+      const youPill = you.choice==='approve' ? '<span class="pill p-ok">Approve</span>' : '<span class="pill p-bad">Decline</span>';
+      const eo = engineOutcome(t);
+      const engPill = (eo.verdict==='allow' ? '<span class="pill p-ok">Allow</span>'
+                    : eo.verdict==='block' ? '<span class="pill p-bad">Block</span>'
+                    : '<span class="pill p-rev">Review</span>')
+                    + ' <span class="score">' + (eo.score === null ? 'EFRuP' : eo.score) + '</span>';
+      const truthPill = t.truth==='fraud' ? '<span class="pill p-bad">Fraud</span>' : '<span class="pill p-dim">Legit</span>';
+      return '<tr><td>#'+(i+1)+'</td><td>'+ truthPill +'</td><td>'+ youPill + (you.correct?' <span class="hit">✓</span>':' <span class="miss">✕</span>')
+           +'</td><td>'+ engPill + (engineCorrect(t)?' <span class="hit">✓</span>':' <span class="miss">✕</span>') +'</td></tr>';
+    }).join('');
+
+    let verdict;
+    if (youScore >= engScore) verdict = 'You matched the machine on 10 transactions. Now imagine <b>a thousand per second</b>, all day, every day, with the decision due before each payment completes.';
+    else verdict = 'The machine edged you out. It was reading device fingerprints, SIM-swap logs, dormancy patterns and counterparty complaint clusters on every transaction, in <b>milliseconds</b>.';
+
+    show(
+      '<div class="card">'+
+      '<p class="eyebrow">Results &middot; the same 10 transactions</p>'+
+      '<h2>You vs the fraud engine</h2>'+
+      '<div class="duel">'+
+      '<div class="side you"><div class="who">You</div><div class="sc">'+ youScore +'/10</div></div>'+
+      '<div class="side eng"><div class="who">Fraud engine</div><div class="sc">'+ engScore +'/10</div></div>'+
+      '</div>'+
+      '<table class="rev"><thead><tr><th>Tx</th><th>Truth</th><th>Your call</th><th>Engine</th></tr></thead><tbody>'+ rows +'</tbody></table>'+
+      '<p>'+ verdict +'</p>'+
+      (youBlockedLegit > 0
+        ? '<p>You declined <b>'+ youBlockedLegit +' legitimate '+ (youBlockedLegit===1?'payment':'payments') +'</b>. Each one is a real person pushed back toward cash. Every threshold in a fraud engine is a <b>policy choice</b> balancing safety against inclusion. Notice the engine&rsquo;s <span class="pill p-rev">Review</span> on the first-time user: a soft hold instead of a hard no.</p>'
+        : '<p>You protected every legitimate customer, which is the half of the job most people miss. The other half is doing it at scale: every threshold in a fraud engine is a <b>policy choice</b> balancing safety against inclusion. Notice the engine&rsquo;s <span class="pill p-rev">Review</span> on the first-time user: a soft hold instead of a hard no.</p>')+
+      (youMissedFraud > 0 ? '<p>The '+ youMissedFraud +' fraud '+ (youMissedFraud===1?'case':'cases') +' you approved would have cleared <b>instantly and irrevocably</b>. In a real-time system there is no recall window. Detection has to happen <b>before</b> the money moves.</p>' : '')+
+      '<div class="tazama"><p><b>This is why real-time fraud monitoring is part of the DPI stack.</b> '+
+      'Here in Rwanda, our IIPS (<b>eKash</b>, powered by <b>Mojaloop</b>) pairs with <b>Tazama</b>, an open-source, real-time transaction monitoring system (a Linux Foundation project) that evaluates rules like the ones in this game on every payment, in milliseconds. '+
+      'Tazama is scheme-agnostic: it works alongside any instant payment system, whatever it is built on. The engine in this game runs Tazama&rsquo;s actual methodology: banded rule results from its real rule library (rules 001, 004, 006, 010, 011, 017, 018, 020, 021, 030, 076 and 091), weighted typology scoring, and the alert (300) and interdiction (500) thresholds from Tazama&rsquo;s own sample configuration. <b>You are about to see a demo of how it works.</b></p></div>'+
+      '<button class="btn" id="againBtn">Play again</button>'+
+      '</div>'
+    );
+    document.getElementById('againBtn').addEventListener('click', intro);
+  }
+
+  intro();
+})();
+</script>

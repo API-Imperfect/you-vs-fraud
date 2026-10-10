@@ -1,0 +1,102 @@
+/* You vs Fraud Detection — "Kigali Ledger"
+   Paper, ink, and rubber stamps: warm receipt paper, soft-black ink,
+   one accent (rubber-stamp red), green/blue inks only for semantics.
+   Display + numbers: JetBrains Mono. Body: IBM Plex Sans. */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap');
+
+:root {
+  --bg: #f1ebdd;            /* aged ledger paper */
+  --panel: #fbf8ef;         /* fresh slip */
+  --panel-hi: #fffdf6;
+  --line: #d9d0ba;          /* paper rule */
+  --ink: #221f1a;           /* soft black ink */
+  --ink-dim: #70685a;       /* faded ink */
+  --accent: #b3202c;        /* rubber-stamp red: THE accent */
+  --accent-hot: #8c1420;    /* pressed stamp */
+  --ok: #1d6b47;            /* teller's green ink */
+  --bad: #b3202c;           /* fraud shares the stamp red */
+  --review: #2b5db8;        /* ballpoint blue */
+  --display: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  --body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  /* Paper: faint horizontal rules + a whisper of grain. No glows, no gradients. */
+  background:
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(43, 93, 184, .055) 31px 32px),
+    radial-gradient(rgba(34, 31, 26, .022) 1px, transparent 1px),
+    var(--bg);
+  background-size: auto, 7px 7px, auto;
+}
+
+h1, h2, h3, .display { font-family: var(--display); }
+button { font-family: inherit; }
+button:focus-visible { outline: 3px solid var(--review); outline-offset: 2px; }
+
+.pill { display: inline-block; border-radius: 3px; padding: 2px 9px; font-size: .72rem; font-weight: 700; white-space: nowrap; letter-spacing: .02em; font-family: var(--display); text-transform: uppercase; }
+.p-ok   { background: rgba(29,107,71,.1);  color: var(--ok);     border: 1px solid rgba(29,107,71,.35); }
+.p-bad  { background: rgba(179,32,44,.08); color: var(--bad);    border: 1px solid rgba(179,32,44,.35); }
+.p-rev  { background: rgba(43,93,184,.08); color: var(--review); border: 1px solid rgba(43,93,184,.35); }
+.p-dim  { background: rgba(34,31,26,.05);  color: var(--ink-dim); border: 1px solid var(--line); }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* The payment slip */
+.gamecard {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 1px 0 rgba(34,31,26,.08), 0 14px 30px rgba(74, 62, 36, .14);
+}
+/* Imigongo-inspired geometric band along the top of every slip */
+.gamecard::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 9px;
+  border-radius: 4px 4px 0 0;
+  background:
+    linear-gradient(135deg, var(--ink) 25%, transparent 25%) 0 0 / 18px 18px,
+    linear-gradient(225deg, var(--ink) 25%, transparent 25%) 0 0 / 18px 18px,
+    var(--accent);
+}
+/* Perforated tear-off edge along the bottom */
+.gamecard::after {
+  content: '';
+  position: absolute;
+  left: 10px; right: 10px; bottom: -5px;
+  height: 10px;
+  background: radial-gradient(circle at 5px 5px, var(--bg) 3px, transparent 3.5px) 0 0 / 18px 10px repeat-x;
+  pointer-events: none;
+}
+
+/* The wall's chalkboard: where the day's standings are written up by hand */
+.chalkboard {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 0%, rgba(255,255,255,.045), transparent 60%),
+    #26352c;
+  border: 10px solid #7a5a3a;           /* wooden frame */
+  border-radius: 6px;
+  box-shadow: 0 1px 0 rgba(34,31,26,.08), 0 14px 30px rgba(74,62,36,.2);
+  color: #f3efe2;
+}
+.chalk { font-family: 'Caveat', cursive; }
+.chalkboard .chalk-row { border-bottom: 1px dashed rgba(243,239,226,.22); }
+
+/* Shown only on screens big enough that "scan to play on your phone" makes sense */
+.widescreen-only { display: none; }
+@media (min-width: 760px) { .widescreen-only { display: flex; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
