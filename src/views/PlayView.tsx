@@ -316,7 +316,28 @@ function Intro({
 	onStart: () => void;
 }) {
 	const ref = useRef<HTMLDivElement>(null);
+	const inputRef = useRef<HTMLInputElement>(null);
 	const [publicUrl, setPublicUrl] = useState("");
+	const [nameError, setNameError] = useState(false);
+	const nameValid = name.trim().length >= 2;
+
+	function tryStart() {
+		if (nameValid) {
+			onStart();
+			return;
+		}
+		setNameError(true);
+		if (inputRef.current) {
+			inputRef.current.focus();
+			if (!reduced) {
+				gsap.fromTo(
+					inputRef.current,
+					{ x: -8 },
+					{ x: 0, duration: 0.45, ease: "elastic.out(1, 0.3)" },
+				);
+			}
+		}
+	}
 	useEffect(() => {
 		if (!ref.current) return;
 		enter(ref.current.children, { y: 22, stagger: 0.09, duration: 0.5 });
@@ -395,31 +416,56 @@ function Intro({
 					fontWeight: 700,
 				}}
 			>
-				Your name (for the wall)
+				Your name &middot; required for the chalkboard
 			</label>
 			<input
 				id="player-name"
+				ref={inputRef}
 				value={name}
 				maxLength={24}
 				placeholder={`e.g. ${placeholder}`}
-				onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-					setName(e.target.value)
-				}
+				onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+					setName(e.target.value);
+					if (nameError && e.target.value.trim().length >= 2)
+						setNameError(false);
+				}}
+				onKeyDown={(e: React.KeyboardEvent) => {
+					if ((e as any).key === "Enter") tryStart();
+				}}
 				style={{
 					width: "100%",
 					borderRadius: 12,
 					padding: "12px 14px",
 					fontSize: "1.05rem",
 					background: "#fffdf6",
-					border: "1px solid var(--line)",
+					border: nameError
+						? "2px solid var(--accent)"
+						: "1px solid var(--line)",
 					color: "var(--ink)",
-					marginBottom: 16,
+					marginBottom: nameError ? 6 : 16,
 					fontFamily: "var(--body)",
 				}}
 			/>
+			{nameError && (
+				<p
+					style={{
+						color: "var(--accent)",
+						fontSize: ".85rem",
+						fontWeight: 600,
+						margin: "0 0 12px",
+					}}
+				>
+					The chalkboard needs a name. Who is taking the desk?
+				</p>
+			)}
 			<button
-				onClick={onStart}
-				style={{ ...btnPrimary, display: "block", margin: "0 auto" }}
+				onClick={tryStart}
+				style={{
+					...btnPrimary,
+					display: "block",
+					margin: "0 auto",
+					opacity: nameValid ? 1 : 0.55,
+				}}
 				data-testid="start-button"
 			>
 				Take the desk →

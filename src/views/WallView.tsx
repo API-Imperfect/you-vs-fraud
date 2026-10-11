@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { QRCodeSVG } from 'qrcode.react';
-import { getConfig, getLeaderboard, type LeaderboardData } from '../api';
+import { getConfig, getLeaderboard, resetBoard, type LeaderboardData } from '../api';
 import { SCENARIOS } from '../scenarios';
 
 const POLL_MS = 2500;
@@ -15,8 +15,11 @@ const reduced = typeof matchMedia !== 'undefined'
 export default function WallView() {
   const [publicUrl, setPublicUrl] = useState('');
   const [data, setData] = useState<LeaderboardData | null>(null);
+  const [armed, setArmed] = useState(false);       // Shift+Enter reveals the red button
+  const [wiping, setWiping] = useState(false);
   const playersRef = useRef(0);
   const boardRef = useRef<HTMLDivElement>(null);
+  const wipingRef = useRef(false);
 
   useEffect(() => {
     getConfig().then(c => { if (c) setPublicUrl(c.publicUrl); });
@@ -24,11 +27,114 @@ export default function WallView() {
 
   useEffect(() => {
     let alive = true;
-    const tick = () => getLeaderboard().then(d => { if (alive && d) setData(d); });
+    const tick = () => getLeaderboard().then(d => {
+      if (alive && d && !wipingRef.current) setData(d);
+    });
     tick();
     const t = setInterval(tick, POLL_MS);
     return () => { alive = false; clearInterval(t); };
   }, []);
+
+  // Secret combo: Shift+Enter toggles the facilitator's red button (auto-hides)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && e.shiftKey) {
+        e.preventDefault();
+        setArmed(a => !a);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 20_000);
+    return () => clearTimeout(t);
+  }, [armed]);
+
+  /** The dramatic wipe: a chalk eraser sweeps the board, each row bursts
+   *  into chalk dust bottom-to-top, then the database is actually cleared. */
+  async function eraseBoard() {
+    if (wipingRef.current) return;
+    wipingRef.current = true;
+    setWiping(true);
+    setArmed(false);
+
+    const board = boardRef.current;
+    if (reduced || !board) {
+      await resetBoard();
+      setData(d => d ? { ...d, top: [], recent: [], perQuestion: [], totals: { players: 0, avgScore: 0 } } : d);
+      wipingRef.current = false;
+      setWiping(false);
+      return;
+    }
+
+    const boardRect = board.getBoundingClientRect();
+    const rows = Array.from(board.querySelectorAll<HTMLElement>('.chalk-row')).reverse();
+
+    // Overlay that holds dust + the eraser itself
+    const overlay = document.createElement('div');
+    Object.assign(overlay.style, {
+      position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '5', overflow: 'hidden',
+    });
+    board.style.position = 'relative';
+    board.appendChild(overlay);
+
+    const eraser = document.createElement('div');
+    Object.assign(eraser.style, {
+      position: 'absolute', width: '130px', height: '48px', left: '-150px', top: '0px',
+      background: 'linear-gradient(180deg, #8a6a46 0 40%, #4a4440 40% 100%)',
+      borderRadius: '8px', boxShadow: '0 6px 14px rgba(0,0,0,.4)',
+      transform: 'rotate(-4deg)',
+    });
+    overlay.appendChild(eraser);
+
+    const dustAt = (x: number, y: number, count: number) => {
+      for (let k = 0; k < count; k++) {
+        const d = document.createElement('div');
+        const size = 2 + Math.random() * 5;
+        Object.assign(d.style, {
+          position: 'absolute', left: `${x + (Math.random() - 0.5) * 70}px`, top: `${y}px`,
+          width: `${size}px`, height: `${size}px`, borderRadius: '50%',
+          background: `rgba(243,239,226,${0.5 + Math.random() * 0.5})`,
+        });
+        overlay.appendChild(d);
+        gsap.to(d, {
+          x: (Math.random() - 0.5) * 130,
+          y: -20 - Math.random() * 70,
+          opacity: 0,
+          duration: 0.6 + Math.random() * 0.5,
+          ease: 'power1.out',
+          onComplete: () => d.remove(),
+        });
+      }
+    };
+
+    const STAGGER = 0.16;
+    const tl = gsap.timeline();
+    rows.forEach((row, idx) => {
+      const r = row.getBoundingClientRect();
+      const y = r.top - boardRect.top + r.height / 2;
+      tl.to(eraser, { left: boardRect.width * 0.7, top: y - 24, duration: STAGGER, ease: 'power1.inOut' }, idx * STAGGER)
+        .call(() => dustAt(boardRect.width * 0.45, y, 16), [], idx * STAGGER + STAGGER * 0.3)
+        .to(row, {
+          opacity: 0, x: 40, skewX: -14, filter: 'blur(5px)',
+          duration: 0.4, ease: 'power2.in',
+        }, idx * STAGGER + STAGGER * 0.2);
+    });
+    tl.to(eraser, { left: boardRect.width + 160, top: -30, rotation: 30, duration: 0.45, ease: 'power2.in' })
+      .to(board, { scale: 1.01, duration: 0.12, yoyo: true, repeat: 1 }, '<');
+
+    await new Promise<void>(resolve => { tl.eventCallback('onComplete', () => resolve()); });
+
+    await resetBoard();
+    overlay.remove();
+    // Clear locally so the empty board shows instantly; polling resumes after
+    setData(d => d ? { ...d, top: [], recent: [], perQuestion: [], totals: { players: 0, avgScore: 0 } } : d);
+    playersRef.current = 0;
+    wipingRef.current = false;
+    setWiping(false);
+  }
 
   // Pulse the leaderboard when a new score lands
   useEffect(() => {
@@ -76,6 +182,16 @@ export default function WallView() {
           <div className="tabular" style={{ color: 'var(--ink-dim)', fontSize: '.8rem', textAlign: 'center', wordBreak: 'break-all' }}>
             {joinUrl.replace(/^https?:\/\//, '')}
           </div>
+          {armed && !wiping && (
+            <button className="danger-btn" onClick={eraseBoard} data-testid="wipe-button">
+              Wipe the board
+            </button>
+          )}
+          {wiping && (
+            <div className="display" style={{ color: 'var(--accent)', fontSize: '.8rem', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase' }}>
+              Erasing&hellip;
+            </div>
+          )}
         </div>
 
         {/* ── Leaderboard ── */}

@@ -93,6 +93,28 @@ button:focus-visible { outline: 3px solid var(--review); outline-offset: 2px; }
 .chalk { font-family: 'Caveat', cursive; }
 .chalkboard .chalk-row { border-bottom: 1px dashed rgba(243,239,226,.22); }
 
+/* The facilitator's hidden red button (Shift+Enter on the wall reveals it) */
+.danger-btn {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: .85rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #fdfaf2;
+  background: var(--accent);
+  border: none;
+  border-radius: 999px;
+  padding: 12px 22px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--accent-hot), 0 0 0 0 rgba(179,32,44,.4);
+  animation: dangerPulse 1.5s ease-in-out infinite;
+}
+.danger-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--accent-hot); animation: none; }
+@keyframes dangerPulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 3px 0 var(--accent-hot), 0 0 0 0 rgba(179,32,44,.4); }
+  50%      { transform: scale(1.05); box-shadow: 0 3px 0 var(--accent-hot), 0 0 0 16px rgba(179,32,44,0); }
+}
+
 /* Shown only on screens big enough that "scan to play on your phone" makes sense */
 .widescreen-only { display: none; }
 @media (min-width: 760px) { .widescreen-only { display: flex; } }

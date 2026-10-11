@@ -41,3 +41,16 @@ export async function getConfig(): Promise<{ publicUrl: string } | null> {
     return res.ok ? await res.json() : null;
   } catch { return null; }
 }
+
+/** Wall-screen reset (hidden red button). Returns rows cleared, or null on failure. */
+export async function resetBoard(): Promise<number | null> {
+  try {
+    const res = await fetch('/api/admin/reset', {
+      method: 'POST',
+      headers: { 'x-wall-reset': 'chalkdust' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return typeof data.cleared === 'number' ? data.cleared : 0;
+  } catch { return null; }
+}

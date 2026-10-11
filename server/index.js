@@ -86,6 +86,10 @@ app.post('/api/score', (req, res) => {
     res.status(422).json({ error: 'Implausibly fast game.' });
     return;
   }
+  if (String(body.name ?? '').trim().length < 2) {
+    res.status(422).json({ error: 'A name is required.' });
+    return;
+  }
   try {
     const result = saveScore(store, body);
     res.status(201).json(result);
@@ -95,11 +99,15 @@ app.post('/api/score', (req, res) => {
 });
 
 // ── Facilitator reset: wipe the leaderboard between sessions ────────────────
-// Deliberately localhost-only: SSH into the server, then
-//   curl -X POST localhost:4000/api/admin/reset
+// Two ways in: localhost (SSH + curl), or the wall screen's hidden red button
+// (revealed with Shift+Enter), which sends the x-wall-reset header. The header
+// is a fixed value, not a secret: anyone reading the source can call this.
+// Accepted trade-off for a public game leaderboard; worst case is a cleared
+// board. Delete the header check below to go back to SSH-only.
 app.post('/api/admin/reset', (req, res) => {
   const isLocal = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
-  if (!isLocal) {
+  const isWall = req.get('x-wall-reset') === 'chalkdust';
+  if (!isLocal && !isWall) {
     res.status(403).json({ error: 'Not allowed' });
     return;
   }
